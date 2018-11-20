@@ -1,6 +1,11 @@
 (function () {
   'use strict';
 
+  const validationRules = new Map([
+    ['alphabetical', /^[a-z]+$/i],
+    ['numeric', /^[0-9]+$/]
+  ]);
+
   function createValidationQueries (inputs) {
     return Array.from(inputs).map(input => ({
       name: input.name,
@@ -9,7 +14,12 @@
     }));
   }
 
-  function validateItem() {
+  function validateItem(validation, validationRules) {
+    if (!validationRules.has(validation.type)) {
+      return false;
+    }
+
+    return validationRules.get(validation.type).test(validation.value);
   }
 
   function validateForm(form) {
@@ -21,21 +31,11 @@
       errors: []
     };
 
-    const inputs = Array.from(form.querySelectorAll('input'));
-
     for (let validation of createValidationQueries(form.querySelectorAll('input'))) {
-      if (validation.type === 'alphabetical') {
-        let isValid = /^[a-z]+$/i.test(validation.value);
+      let isValid = validateItem(validation, validationRules);
 
-        if (!isValid) {
-          result.errors.push(new Error(`${validation.value} is not a valid ${validation.name} value`));
-        }
-      } else if (validation.type === 'numeric') {
-        let isValid = /^[0-9]+$/.test(validation.value);
-
-        if (!isValid) {
-          result.errors.push(new Error(`${validation.value} is not a valid ${validation.name} value`));
-        }
+      if (!isValid) {
+        result.errors.push(new Error(`${validation.value} is not a valid ${validation.name} value`));
       }
     }
 
@@ -110,9 +110,7 @@
       });
     });
 
-    describe('th createValidationQueries function', () => {
-    let form = document.querySelector('.test-form');
-
+    describe('the createValidationQueries function', () => {
       it('should map input elements with a data-validation attribute to an array of validation objects', () => {
       const name = form.querySelector('input[name="first-name"]');
         const age  = form.querySelector('input[name="age"]');
@@ -131,6 +129,42 @@
         expect(validations[1].name).to.equal('age');
         expect(validations[1].type).to.equal('numeric');
         expect(validations[1].value).to.equal('42');
+      });
+    });
+
+    describe('the validateItem function', () => {
+      const validationRules = new Map([
+        ['alphabetical', /^[a-z]+$/i]
+      ]);
+
+      it('should return true when the passed item is deemed valid against the supplied validation rules', () => {
+        const validation = {
+          type: 'alphabetical',
+          value: 'Bob'
+        };
+
+        const isValid = validateItem(validation, validationRules);
+        expect(isValid).to.be.true;
+      });
+
+      it('should return false when the passed item is deemed invalid', () => {
+        const validation = {
+          type: 'alphabetical',
+          value: '42'
+        };
+
+        const isValid = validateItem(validation, validationRules);
+        expect(isValid).to.be.false;
+      });
+
+      it('should return false when the specified validation type is not found', () => {
+        const validation = {
+          type: 'foo',
+          value: '42'
+        };
+
+        const isValid = validateItem(validation, validationRules);
+        expect(isValid).to.be.false;
       });
     });
   });
